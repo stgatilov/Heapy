@@ -27,6 +27,7 @@ public:
 	// Return a list of allocation sites (a particular stack trace) and the amount
 	// of memory currently allocated by each site.
 	void getAllocationSiteReport(std::vector<std::pair<StackTrace, size_t>> &allocs);
+	void printStats(std::ostream &stream);
 private:
 	std::mutex mutex;
 	struct CallStackInfo {

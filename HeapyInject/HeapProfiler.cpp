@@ -106,3 +106,9 @@ void HeapProfiler::getAllocationSiteReport(std::vector<std::pair<StackTrace, siz
 		allocs.push_back(std::make_pair(value.trace, value.totalSize));
 	});
 }
+
+void HeapProfiler::printStats(std::ostream &stream) {
+	stream << "Number of all allocating stack traces: " << stackTraces.Size() << std::endl;
+	stream << "Number of currently allocated pointers: " << ptrs.Size() << std::endl;
+	stream << "Sizes of hash tables: " << stackTraces.MemSize() / double(1<<20) << " MB   and   " << ptrs.MemSize() / double(1<<20) << " MB" << std::endl;
+}

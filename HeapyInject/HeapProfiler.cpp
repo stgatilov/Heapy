@@ -19,6 +19,9 @@ void StackTrace::trace(){
 	hash = 0;
 	for (int i = 0; i < framesCnt; i++)
 		hash = hash * BASE + (size_t)backtrace[i];
+	//0 and -1 are special values in hash table
+	if (hash == (StackHash)0 || hash == (StackHash)-1)
+		hash = 0xDEAFBEEF;
 }
 
 void StackTrace::print(std::ostream &stream) const {
@@ -57,26 +60,27 @@ void StackTrace::print(std::ostream &stream) const {
 	}
 }
 
+HeapProfiler::HeapProfiler()
+	: stackTraces((StackHash)0, (StackHash)-1)
+	, ptrs(NULL, (void*)(size_t)-1)
+{}
+
 void HeapProfiler::malloc(void *ptr, size_t size, const StackTrace &trace){
 	std::lock_guard<std::mutex> lk(mutex);
 
-	if (ptrs.find(ptr) != ptrs.end())
+	if (ptrs.Find(ptr))
 		return;   //two buffers at same address!
 
 	// Locate or create this stacktrace in the allocations map.
-	if(stackTraces.find(trace.hash) == stackTraces.end()){
-		auto &stack = stackTraces[trace.hash];
-		stack.trace = trace;
-		stack.totalSize = 0;
-	}
+	CallStackInfo newStackInfo = {trace, 0};
+	auto pStack = stackTraces.Insert(trace.hash, newStackInfo, false);
 
 	// Store the size for this allocation this stacktraces allocation map.
-	stackTraces[trace.hash].totalSize += size;
+	pStack->value.totalSize += size;
 
 	// Store the stracktrace hash of this allocation in the pointers map.
-	auto &ptrInfo = ptrs[ptr];
-	ptrInfo.size = size;
-	ptrInfo.stack = trace.hash;
+	PointerInfo ptrInfo = {trace.hash, size};
+	ptrs.Insert(ptr, ptrInfo);
 }
 
 void HeapProfiler::free(void *ptr, const StackTrace &trace){
@@ -84,11 +88,11 @@ void HeapProfiler::free(void *ptr, const StackTrace &trace){
 
 	// On a free we remove the pointer from the ptrs map and the
 	// allocating stack traces map.
-	auto it = ptrs.find(ptr);
-	if(it != ptrs.end()){
-		const PointerInfo &info = it->second;
-		stackTraces[info.stack].totalSize -= info.size;
-		ptrs.erase(it);
+	auto iter = ptrs.Find(ptr);
+	if(iter){
+		auto &stackInfo = stackTraces.Find(iter->value.stack)->value;
+		stackInfo.totalSize -= iter->value.size;
+		ptrs.Remove(iter);
 	}else{
 		// Do anything with wild pointer frees?
 	}
@@ -98,8 +102,7 @@ void HeapProfiler::getAllocationSiteReport(std::vector<std::pair<StackTrace, siz
 	std::lock_guard<std::mutex> lk(mutex);
 	allocs.clear();
 
-	for(auto it = stackTraces.begin(); it != stackTraces.end(); it++){
-		const auto &info = it->second;
-		allocs.push_back(std::make_pair(info.trace, info.totalSize));
-	}
+	stackTraces.ForEach([&allocs](StackHash key, const CallStackInfo &value) {
+		allocs.push_back(std::make_pair(value.trace, value.totalSize));
+	});
 }

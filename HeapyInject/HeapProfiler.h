@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <set>
 #include <mutex>
+#include "HashTable.h"
 
 const int backtraceSize = 64;
 typedef size_t StackHash;
@@ -19,6 +20,7 @@ struct StackTrace{
 
 class HeapProfiler{
 public:
+	HeapProfiler();
 	void malloc(void *ptr, size_t size, const StackTrace &trace);
 	void free(void *ptr, const StackTrace &trace);
 
@@ -36,7 +38,6 @@ private:
 		size_t size;
 	};
 
-	std::unordered_map<StackHash, CallStackInfo> stackTraces;
-	std::unordered_map<void*, PointerInfo> ptrs;
-
+	HashTable<StackHash, CallStackInfo> stackTraces;
+	HashTable<void*, PointerInfo> ptrs;
 };

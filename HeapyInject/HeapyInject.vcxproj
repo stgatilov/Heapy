@@ -166,6 +166,7 @@
     <ClCompile Include="HeapyInject.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HashTable.h" />
     <ClInclude Include="HeapProfiler.h" />
   </ItemGroup>
   <ItemGroup>

@@ -17,6 +17,8 @@ class HashTable {
 	size_t elementsCnt, usedCnt;
 	Entry *cells;
 
+	inline ptrdiff_t reduce(ptrdiff_t i) const { return i % cellsCnt; }
+	inline ptrdiff_t next(ptrdiff_t i) const { return i == cellsMask ? 0 : i+1; }
 	void Allocate(size_t cnt) {
 		cellsCnt = cnt, cellsMask = cnt-1;
 		cells = (Entry*)malloc(cellsCnt * sizeof(Entry));
@@ -26,8 +28,8 @@ class HashTable {
 	void HandleOverflow() {
 		Entry *oldCells = cells;
 		size_t oldSize = cellsCnt;
-		//do not increase table size unless number of alive elements is above 50% of its size
-		size_t newSize = (elementsCnt > cellsCnt / 2 ? cellsCnt * 2 : cellsCnt);
+		//do not increase table size unless number of alive elements is above 75% of its size
+		size_t newSize = (elementsCnt > 0.75 * cellsCnt ? size_t(cellsCnt * 1.2599) : cellsCnt);
 		Allocate(newSize);
 		usedCnt = elementsCnt = 0;
 		for (size_t i = 0; i < oldSize; i++) {
@@ -52,8 +54,8 @@ public:
 	size_t Size() const { return elementsCnt; }
 	size_t MemSize() const { return cellsCnt * sizeof(Entry); }
 	Entry *Find(Key key) const {
-		ptrdiff_t i = hfunc(key) & cellsMask;
-		for (; cells[i].key != emptyKey; i = (i+1) & cellsMask)
+		ptrdiff_t i = reduce(hfunc(key));
+		for (; cells[i].key != emptyKey; i = next(i))
 			if (cells[i].key == key)
 				return &cells[i];
 		return NULL;
@@ -62,8 +64,8 @@ public:
 		//clear or reallocate table if exceeded 87.5% max load factor
 		if (usedCnt + 1 > cellsCnt - cellsCnt / 8)
 			HandleOverflow();
-		ptrdiff_t i = hfunc(key) & cellsMask, removed = -1;
-		for (; cells[i].key != emptyKey; i = (i+1) & cellsMask) {
+		ptrdiff_t i = reduce(hfunc(key)), removed = -1;
+		for (; cells[i].key != emptyKey; i = next(i)) {
 			if (cells[i].key == key) {
 				if (overwrite) cells[i].value = value;
 				return &cells[i];
